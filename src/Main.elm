@@ -38,7 +38,7 @@ type alias Model =
 
  
 default_address : String
-default_address = "http://127.0.0.1:8888"
+default_address = "http://127.0.0.1:8080"
 
 init : () -> (Model, Cmd Msg)
 init _ =
