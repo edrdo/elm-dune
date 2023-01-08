@@ -1,10 +1,12 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, text, pre)
+import Html exposing (Html)
+import Html.Attributes as HtmlA
+import Html.Events as HtmlE
 import Http
-import IMC
-
+import IMC 
+import Time
 
 -- MAIN
 
@@ -22,41 +24,58 @@ main =
 
 -- MODEL
 
-
-type Model
-  = Failure
+type Status =
+    Failure 
   | Loading
-  | Success String
+  | Loaded
 
+type alias Model = 
+    { status: Status
+    , address: String
+    , request_time: Int
+    , json: String
+    , msgs: List (IMC.Header, IMC.Message) } 
+
+ 
+default_address : String
+default_address = "http://127.0.0.1:8888"
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( Loading
-  , Http.get
-      { url = "http://127.0.0.1:8888/dune/state/toJSON" -- "https://gutenberg.org/files/69641/69641-0.txt" -- url = "https://elm-lang.org/assets/public-opinion.txt"
-      , expect = Http.expectString GotText
-      }
-  )
-
+  let s = { status=Loading, address=default_address, request_time=0, json="", msgs=[] } in 
+    (s, fetch_data s.address)
+ 
+fetch_data : String -> Cmd Msg
+fetch_data address = 
+    Http.get { url = address ++ "/dune/state/toJSON" 
+            , expect = Http.expectString ServerData }
 
 
 -- UPDATE
 
 
 type Msg
-  = GotText (Result Http.Error String)
+  = Config String
+  | ServerData (Result Http.Error String) 
+  | Tick Time.Posix
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg _ =
+update msg m =
   case msg of
-    GotText result ->
-      case result of
-        Ok fullText ->
-          (Success (fullText ++ Debug.toString (IMC.decode fullText)), Cmd.none)
-
+    Config addr -> 
+      ({ m | address = addr}, Cmd.none)
+    ServerData sd ->
+      case sd of
+        Ok data ->
+          ({ m | status=Loaded, json=data, msgs=IMC.decode data }
+          , Cmd.none)
         Err _ ->
-          (Failure, Cmd.none)
+          ({ m | status=Failure, json="", msgs=[] }
+          , Cmd.none)
+    Tick t -> 
+      ({ m | status = Loading, request_time=Time.posixToMillis t }
+      , fetch_data m.address)
 
 
 
@@ -65,21 +84,37 @@ update msg _ =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-  Sub.none
+  Time.every 1000 Tick
 
-
-
--- VIEW
-
-
+-- VIEW 
 view : Model -> Html Msg
-view model =
-  case model of
-    Failure ->
-      text "I was unable to load your book."
+view m =
+  Html.div [] 
+      [ Debug.toString m.status |> Html.text |> section "Status" 
+      , Html.input [ HtmlA.placeholder "host:port", HtmlA.value m.address, HtmlE.onInput Config]  [ ] |> section "Address"
+      , String.fromInt m.request_time |> Html.text |> section "Request time" 
+      , Html.pre [] [ Html.text m.json ] |> section "JSON"
+      , List.map header m.msgs |> Html.ol [] |> section "IMC" ]
 
-    Loading ->
-      text "Loading..."
+section : String -> Html msg -> Html msg
+section desc data = 
+    Html.div [] 
+      [ Html.b [] [ Html.text (desc ++ ": ")]
+      , data ]
 
-    Success fullText ->
-      pre [] [ text fullText ]
+toString: a -> String
+toString x =
+  Debug.toString x 
+  |> String.replace "{" "{<br/>\n&nbsp&nbsp;"
+  |> String.replace "]" "{<br/>\n"
+  |> String.replace "]" "{<br/>\n"
+
+header: (IMC.Header,IMC.Message) -> Html Msg
+header (h,m) = 
+  Html.li [] 
+    [ Debug.toString h |> Html.text |> section "Header"
+    , Debug.toString m |> Html.text |> section "Message" ]  
+
+  
+   
+
