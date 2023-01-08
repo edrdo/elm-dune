@@ -32,6 +32,6 @@ There is a `lauv-xplore-1-alt` configuration that you can use;
 others will work too but this one will send more interesting messages to the Elm module. 
 
 ```
-dune -c lauv-xplore-1-alt -p Simulation
+./dune -c lauv-xplore-1-alt -p Simulation
 ``` 
 
