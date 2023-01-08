@@ -1,0 +1,5 @@
+https://www.tutorialspoint.com/elm/
+
+https://www.artificialworlds.net/blog/2018/10/19/elm-json-decoder-examples/
+
+https://thoughtbot.com/blog/5-common-json-decoders
